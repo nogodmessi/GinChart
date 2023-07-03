@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"github.com/asaskevich/govalidator"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // GetUserList
@@ -38,34 +41,21 @@ func GetUserList(c *gin.Context) {
 // @Router /user/createUser [get]
 func CreateUser(c *gin.Context) {
 	user := models.UserBasic{}
-	user.Name = c.Query("name")
-	user.Phone = c.Query("phone")
-	user.Email = c.Query("email")
-	password := c.Query("password")
-	repassword := c.Query("repassword")
-
+	user.Name = c.Request.FormValue("name")
+	password := c.Request.FormValue("password")
+	repassword := c.Request.FormValue("Identity")
 	salt := fmt.Sprintf("%06d", rand.Int31())
 
 	user1 := models.FindUserByName(user.Name)
+	if user.Name == "" || password == "" {
+		c.JSON(-1, gin.H{
+			"message": "用户名或密码不能为空！",
+		})
+		return
+	}
 	if user1.Name != "" {
 		c.JSON(-1, gin.H{
 			"message": "用户名已注册！",
-		})
-		return
-	}
-
-	user2 := models.FindUserByPhone(user.Phone)
-	if user2.Phone != "" {
-		c.JSON(-1, gin.H{
-			"message": "手机号已注册！",
-		})
-		return
-	}
-
-	user3 := models.FindUserByEmail(user.Email)
-	if user3.Email != "" {
-		c.JSON(-1, gin.H{
-			"message": "电子邮箱已注册！",
 		})
 		return
 	}
@@ -98,8 +88,10 @@ func CreateUser(c *gin.Context) {
 func FindUserByNameAndPwd(c *gin.Context) {
 	data := models.UserBasic{}
 
-	name := c.Query("name")
-	password := c.Query("password")
+	//name := c.Query("name")
+	//password := c.Query("password")
+	name := c.Request.FormValue("name")
+	password := c.Request.FormValue("password")
 	user := models.FindUserByName(name)
 	if user.Name == "" {
 		c.JSON(http.StatusOK, gin.H{
@@ -183,4 +175,46 @@ func UpdateUser(c *gin.Context) {
 		})
 	}
 
+}
+
+// 防止跨域站点伪造请求
+var upGrade = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+func SendMsg(c *gin.Context) {
+	ws, err := upGrade.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer func(ws *websocket.Conn) {
+		err = ws.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(ws)
+	MsgHandler(ws, c)
+}
+
+func MsgHandler(ws *websocket.Conn, c *gin.Context) {
+	for {
+		msg, err := utils.Subscribe(c, utils.PublishKey)
+		if err != nil {
+			fmt.Println(" MsgHandler 发送失败", err)
+		}
+		fmt.Println("发送消息: ", msg)
+		tm := time.Now().Format("2006-01-02 15:04:05")
+		m := fmt.Sprintf("[ws][%s]:%s", tm, msg)
+		err = ws.WriteMessage(1, []byte(m))
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+}
+
+func SendUserMsg(c *gin.Context) {
+	models.Chat(c.Writer, c.Request)
 }
