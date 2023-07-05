@@ -14,10 +14,10 @@ import (
 
 type Message struct {
 	gorm.Model
-	FromId   int64  //发送者
+	FormId   int64  //发送者
 	TargetId int64  //接收者
 	Type     int    //聊天类型   1私聊 2群聊 3广播
-	Media    int    //消息类型   1文字 2表情包  3图片 4音频
+	Media    int    //消息类型   1文字 2表情包  3图片 4 音频
 	Content  string //消息内容
 	Pic      string
 	Url      string
@@ -52,11 +52,11 @@ func Chat(writer http.ResponseWriter, request *http.Request) {
 	userId, _ := strconv.ParseInt(Id, 10, 64)
 	//targetId := query.Get("targetId")
 	//context := query.Get("context")
-	isvalid := true //checkToken()  待......
+	isvalida := true //checkToken()  待......
 	conn, err := (&websocket.Upgrader{
 		//token 校验
 		CheckOrigin: func(r *http.Request) bool {
-			return isvalid
+			return isvalida
 		},
 	}).Upgrade(writer, request, nil)
 	if err != nil {
@@ -78,6 +78,7 @@ func Chat(writer http.ResponseWriter, request *http.Request) {
 	go sendProc(node)
 	//6.完成接受逻辑
 	go recvProc(node)
+
 	sendMsg(userId, []byte("欢迎进入聊天室"))
 }
 
@@ -103,7 +104,7 @@ func recvProc(node *Node) {
 			return
 		}
 		broadMsg(data)
-		fmt.Println("[ws] <<<<<", data)
+		//fmt.Println("[ws] <<<<<", string(data))
 	}
 }
 
@@ -133,6 +134,7 @@ func udpSendProc() {
 	for {
 		select {
 		case data := <-udpsendChan:
+			//fmt.Println("udpSendProc data : ", string(data))
 			_, err := con.Write(data)
 			if err != nil {
 				fmt.Println(err)
@@ -186,6 +188,7 @@ func dispatch(data []byte) {
 }
 
 func sendMsg(userId int64, msg []byte) {
+	fmt.Println("sendMsg >>> userID:", userId, " msg:", string(msg))
 	rwLocker.RLock()
 	node, ok := clientMap[userId]
 	rwLocker.RUnlock()
