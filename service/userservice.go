@@ -220,12 +220,26 @@ func SendUserMsg(c *gin.Context) {
 }
 
 func SearchFriends(c *gin.Context) {
-	userId, _ := strconv.Atoi(c.Query("userId"))
-	users := models.SearchFriend(uint(userId))
+	id, _ := strconv.Atoi(c.Request.FormValue("userId"))
+	users := models.SearchFriend(uint(id))
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    0,
-		"message": "查询好友列表成功",
-		"data":    users,
-	})
+	//c.JSON(http.StatusOK, gin.H{
+	//	"code":    0,
+	//	"message": "查询好友列表成功",
+	//	"data":    users,
+	//})
+	utils.RespOKList(c.Writer, users, len(users))
+}
+
+func AddFriend(c *gin.Context) {
+	userId, _ := strconv.Atoi(c.Request.FormValue("userId"))
+	targetName := c.Request.FormValue("targetName")
+
+	code, msg := models.AddFriend(uint(userId), targetName)
+	if code == 0 {
+		utils.RespOK(c.Writer, code, msg)
+	} else {
+		utils.RespFail(c.Writer, msg)
+	}
+
 }
